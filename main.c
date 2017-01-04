@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include "complex.h"
 #include <SDL.h>
+#include <math.h>
 
 
 const int WIDTH = 1024;
@@ -8,11 +8,11 @@ const int HEIGHT = 1024;    //explodes mean grows large and is outside the Mande
 const int ITERATIONS = 50;  //Max number of iterations to check if z value "explodes"
 const double LIMIT = 5;      //The number at which the z-value counts as "exploded"
 
-int quitting;
+int quitting; //Is the program quitting 0 = no, 1 = yes
 
-int xDown, yDown, xDrag, yDrag;
+int xDown, yDown, xDrag, yDrag; //Coords when mouse is pressed and coords when mouse is being dragged
 
-double colourScale = 222;
+double colourScale = 222; //Colour variable
 
 double xStart, xEnd, yStart, yEnd; //Coords for viewport
 
@@ -20,39 +20,42 @@ SDL_Surface *image;
 SDL_Renderer *renderer;
 SDL_Texture *texture;
 
-void update(){
+void update(){ //Update the fractal image
 
     SDL_LockSurface(image);
 
-    double xScale = (xEnd - xStart)/WIDTH; //The size of each pixel relative to the graph
-    double yScale = (yEnd - yStart)/HEIGHT;
+    long double xScale = (xEnd - xStart)/WIDTH; //The size of each pixel relative to the graph
+    long double yScale = (yEnd - yStart)/HEIGHT;
 
     unsigned int *px = image->pixels; //get a pointer to the pixel data
     unsigned int colour; //colour to set the pixels
 
     int i;
     int max = WIDTH*HEIGHT; //how many pixels to calculate
-    double mod;  //Modulus of the complex number
+    long double mod;  //Modulus of the complex number
     for(i = 0; i < max; i++){
 
         // f(z) = z^2 + c
         // z starts as 0, c is the coords on the graph
 
-        struct cNum c; //complex number struct, defined in complex.h
-        c.real = xStart + i%WIDTH * xScale;
-        c.imag = yEnd - i/WIDTH * yScale;
+        long double cR, cI, zR, zI; // Real and Imaginary parts of Z and C
+        cR = xStart + i%WIDTH * xScale; //Coords for C
+        cI = yEnd - i/WIDTH * yScale;
 
-        struct cNum z;
-        z.real = 0;
-        z.imag = 0;
+        zR = 0; //init Z
+        zI = 0;
 
         int j;
         mod = 0;
         //Perform the function recursively until the modulus
         //goes over the limit or the max iterations are performed
         for(j = 0; j < ITERATIONS && mod < LIMIT; j++){
-            z = cAdd(cSqr(z), c);
-            mod = cMod(z);
+            //These 2 lines basically calculate z = z^2 + c
+            long double zRTemp = zR * zR - zI * zI + cR; //Calculate new values for zR and zI
+            long double zITemp = zR * zI * 2 + cI;
+            zR = zRTemp; //Set them
+            zI = zITemp;
+            mod = sqrt(zR * zR + zI * zI); // get the modulus
         }
 
         if(mod < LIMIT){//if inside the set, colour white
@@ -67,7 +70,7 @@ void update(){
     SDL_UnlockSurface(image);
 }
 
-void render(){
+void render(){ //Render the fractal image
     SDL_UpdateTexture(texture, '\0', image->pixels, image->pitch); //update texture
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, texture, '\0', '\0');//render it
@@ -116,13 +119,13 @@ int main(int argc, char* args[]){
                 double xRange = xEnd - xStart;
                 double yRange = yEnd - yStart;
 
-                if(state[SDL_SCANCODE_SPACE]){
+                if(state[SDL_SCANCODE_SPACE]){ //zoom out
                     xEnd += 0.5*xRange;
                     xStart -= 0.5*xRange;
                     yEnd += 0.5*yRange;
                     yStart -= 0.5*yRange;
                 }
-                if(state[SDL_SCANCODE_RETURN]){
+                if(state[SDL_SCANCODE_RETURN]){ //zoom in
                     xEnd -= 0.25*xRange;
                     xStart += 0.25*xRange;
                     yEnd -= 0.25*yRange;
@@ -131,13 +134,13 @@ int main(int argc, char* args[]){
                 if(state[SDL_SCANCODE_Q]){
 
                 }
-                if(state[SDL_SCANCODE_R]){
+                if(state[SDL_SCANCODE_R]){ //Reset to initial viewport
                     xStart = -2, xEnd = 2, yStart = -2, yEnd = 2;
                 }
-                if(state[SDL_SCANCODE_E]){
+                if(state[SDL_SCANCODE_E]){ //Reset the aspect ratio
                     yStart = yEnd - xRange;
                 }
-                if(state[SDL_SCANCODE_W]){
+                if(state[SDL_SCANCODE_W]){ //WASD camera movement (up, left, down, right)
                     yStart += 0.2*xRange;
                     yEnd += 0.2*xRange;
                 }
@@ -156,7 +159,7 @@ int main(int argc, char* args[]){
 
                 update();
             }
-            if(event.type == SDL_MOUSEBUTTONDOWN){
+            if(event.type == SDL_MOUSEBUTTONDOWN){ //currently not working correctly
                 SDL_GetMouseState(&xDown, &yDown);
                 yDown = HEIGHT - yDown;
             }
@@ -184,7 +187,7 @@ int main(int argc, char* args[]){
         if(xDown != 0){
             SDL_GetMouseState(&xDrag, &yDrag);
             yDrag = HEIGHT - yDrag;
-            SDL_SetRenderDrawColor(renderer, 0xAA, 0xFF, 0xAA, 0xFF);
+            SDL_SetRenderDrawColor(renderer, 0xAA, 0xFF, 0xAA, 0xFF); //currently not working
             SDL_RenderDrawLine(renderer, xStart, yStart, xStart, yEnd);
             SDL_RenderDrawLine(renderer, xStart, yStart, xEnd, yStart);
             SDL_RenderDrawLine(renderer, xStart, yEnd, xEnd, yEnd);
@@ -195,7 +198,7 @@ int main(int argc, char* args[]){
 
     }
 
-    SDL_FreeSurface(image);
+    SDL_FreeSurface(image); //free objects
     SDL_DestroyTexture(texture);
     SDL_DestroyRenderer;
     SDL_DestroyWindow(window);
