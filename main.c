@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <SDL.h>
 #include <math.h>
 
@@ -12,7 +13,8 @@ int quitting; //Is the program quitting 0 = no, 1 = yes
 
 int xDown, yDown, xDrag, yDrag; //Coords when mouse is pressed and coords when mouse is being dragged
 
-double colourScale = 222; //Colour variable
+unsigned int outColourScale = 999999990; //Colour variable
+unsigned int inColourScale = -1;
 
 double xStart, xEnd, yStart, yEnd; //Coords for viewport
 
@@ -58,10 +60,10 @@ void update(){ //Update the fractal image
             mod = sqrt(zR * zR + zI * zI); // get the modulus
         }
 
-        if(mod < LIMIT){//if inside the set, colour white
-            colour = -1;
-        }else{
-            colour = colourScale*mod; //otherwise colour some random colour
+        if(mod < LIMIT){
+            colour = inColourScale - mod*100 - mod * 100 * 255 - mod; //If inside set a random colour
+        }else{                                                        //These colour "formulas" were just made by trial and error to what looked best.
+            colour = outColourScale + mod*100 + mod * 100 * 255 + mod;//If outside set another random colour
         }
 
         px[i] = colour; //finally set the pixel to the right colour.
@@ -100,6 +102,8 @@ int main(int argc, char* args[]){
 
     render();
 
+    srand(SDL_GetTicks() + 100000); //Seed RNG for random colours
+
     SDL_Event event;
     while(!quitting){
 
@@ -132,7 +136,8 @@ int main(int argc, char* args[]){
                     yStart += 0.25*yRange;
                 }
                 if(state[SDL_SCANCODE_Q]){
-
+                    outColourScale = (rand()%256) * 255 + (rand()%256) * 255 * 255 + (rand()%256) * 255 * 255 * 255;
+                    inColourScale = (rand()%256) * 255 + (rand()%256) * 255 * 255 + (rand()%256) * 255 * 255 * 255;
                 }
                 if(state[SDL_SCANCODE_R]){ //Reset to initial viewport
                     xStart = -2, xEnd = 2, yStart = -2, yEnd = 2;
@@ -188,7 +193,7 @@ int main(int argc, char* args[]){
             SDL_GetMouseState(&xDrag, &yDrag);
             yDrag = HEIGHT - yDrag;
             SDL_SetRenderDrawColor(renderer, 0xAA, 0xFF, 0xAA, 0xFF); //currently not working
-            SDL_RenderDrawLine(renderer, xStart, yStart, xStart, yEnd);
+            SDL_RenderDrawLine(renderer, xStart, yStart, xStart, yEnd); //Should draw box when dragging over a selection
             SDL_RenderDrawLine(renderer, xStart, yStart, xEnd, yStart);
             SDL_RenderDrawLine(renderer, xStart, yEnd, xEnd, yEnd);
             SDL_RenderDrawLine(renderer, xEnd, yStart, xEnd, yEnd);
