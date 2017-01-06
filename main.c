@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <SDL.h>
+#include <SDL/SDL.h>
 #include <math.h>
 
 
@@ -18,16 +18,50 @@ unsigned int inColourScale = -1;
 
 double xStart, xEnd, yStart, yEnd; //Coords for viewport
 
-SDL_Surface *image;
+SDL_Surface *image; //Contains the fractal
+SDL_Surface *finalImage; //Contains the fractal and any UI elements drawn over it
 SDL_Renderer *renderer;
 SDL_Texture *texture;
 
-void update(){ //Update the fractal image
+void drawBox(int x1, int y1, int x2, int y2) {
+	SDL_BlitSurface(image, '\0', finalImage, '\0'); //Get the blank fractal
+	unsigned int *px = finalImage->pixels; //get pointer to pixel data
 
+	//Always start from same corner
+	if (x1 > x2) {
+		int xTemp = x1;
+		x1 = x2;
+		x2 = xTemp;
+	}
+	if (y1 > y2) {
+		int yTemp = y1;
+		y1 = y2;
+		y2 = yTemp;
+	}
+	int x, y;
+	for (y = y1; y <= y2; y += 1) { //Cycle through relevant rows
+		if (y == y1 || y-1 == y1 || y == y2 || y+1 == y2) { //If top or bottom draw a line ----- for the top of the rect
+			//the y-1 y+1 business is to make the lines 2 pixels thick
+			for (x = x1; x <= x2; x++) { 
+				px[y*WIDTH + x] *= -1;
+			}
+		}
+		else {					//Otherwise just draw 2 pixels for the walls of the rect .    .
+			px[y*WIDTH + x1] *= -1;//                                                    .    .
+			px[y*WIDTH + x2] *= -2;//                                                    .    .
+
+			px[y*WIDTH + x1+1] *= -1; //Draw the lines 2 pixels thick
+			px[y*WIDTH + x2-1] *= -2;
+		}
+	}
+}
+
+void update(){ //Update the fractal image
+	printf("viewport: (%f,%f) , (%f, %f)\n", xStart, yStart, xEnd, yEnd);
     SDL_LockSurface(image);
 
-    long double xScale = (xEnd - xStart)/WIDTH; //The size of each pixel relative to the graph
-    long double yScale = (yEnd - yStart)/HEIGHT;
+    long double xScale = (xEnd - xStart)/((double) WIDTH); //The size of each pixel relative to the graph
+    long double yScale = (yEnd - yStart)/((double) HEIGHT);
 
     unsigned int *px = image->pixels; //get a pointer to the pixel data
     unsigned int colour; //colour to set the pixels
@@ -70,10 +104,12 @@ void update(){ //Update the fractal image
     }
 
     SDL_UnlockSurface(image);
+
+	SDL_BlitSurface(image, '\0', finalImage, '\0'); //copy this image over onto the final image
 }
 
 void render(){ //Render the fractal image
-    SDL_UpdateTexture(texture, '\0', image->pixels, image->pitch); //update texture
+    SDL_UpdateTexture(texture, '\0', finalImage->pixels, finalImage->pitch); //update texture
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, texture, '\0', '\0');//render it
     SDL_RenderPresent(renderer);
@@ -93,6 +129,7 @@ int main(int argc, char* args[]){
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
     image = SDL_CreateRGBSurface(0, 1024, 1024, 32, 0, 0, 0, 0);
+	finalImage = SDL_CreateRGBSurface(0, 1024, 1024, 32, 0, 0, 0, 0);
 
     texture = SDL_CreateTextureFromSurface(renderer, image);
 
@@ -169,6 +206,7 @@ int main(int argc, char* args[]){
                 yDown = HEIGHT - yDown;
             }
             if(event.type == SDL_MOUSEBUTTONUP){
+				yDrag = HEIGHT - yDrag;
                 if(xDown > xDrag){
                     int temp = xDown;
                     xDown = xDrag;
@@ -179,24 +217,22 @@ int main(int argc, char* args[]){
                     yDown = yDrag;
                     yDrag = temp;
                 }
-
-                xStart = xStart + (double)xDown/WIDTH * xRange;
-                xEnd = xStart + (double)xDrag/WIDTH * xRange;
-                yStart = yStart + (double)yDown/WIDTH * yRange;
-                yEnd = yStart + (double)yDrag/WIDTH * yRange;
+				float xStartTemp = xStart;
+				float yStartTemp = yStart;
+                xStart = xStart + ((double)xDown)/(double)WIDTH * xRange;
+                xEnd = xStartTemp + ((double)xDrag)/(double)WIDTH * xRange;
+                yStart = yStart + ((double)yDown)/(double)WIDTH * yRange;
+                yEnd = yStartTemp + ((double)yDrag)/(double)WIDTH * yRange;
 
                 update();
+
+				xDown = yDown = 0;
             }
         }
 
         if(xDown != 0){
             SDL_GetMouseState(&xDrag, &yDrag);
-            yDrag = HEIGHT - yDrag;
-            SDL_SetRenderDrawColor(renderer, 0xAA, 0xFF, 0xAA, 0xFF); //currently not working
-            SDL_RenderDrawLine(renderer, xStart, yStart, xStart, yEnd); //Should draw box when dragging over a selection
-            SDL_RenderDrawLine(renderer, xStart, yStart, xEnd, yStart);
-            SDL_RenderDrawLine(renderer, xStart, yEnd, xEnd, yEnd);
-            SDL_RenderDrawLine(renderer, xEnd, yStart, xEnd, yEnd);
+			drawBox(xDown, HEIGHT - yDown, xDrag, yDrag); //Im not sure why the yDown coord has to be inverted here, ill find and fix later
         }
 
         render();
